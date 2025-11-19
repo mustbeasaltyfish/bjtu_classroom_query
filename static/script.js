@@ -1,4 +1,79 @@
-async function queryData() {
+document.addEventListener('DOMContentLoaded', () => {
+    // Check if we need to login by trying to query (auto-detect week)
+    // Or just simple: if we get 401 on query, show login.
+    // But user wants popup on open. Let's try a lightweight check or just query.
+    queryData(true); // true = isInitialLoad
+
+    // Setup Login Form
+    const loginForm = document.getElementById('loginForm');
+    loginForm.addEventListener('submit', handleLogin);
+});
+
+async function handleLogin(e) {
+    e.preventDefault();
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const loginBtn = document.getElementById('loginBtn');
+    const errorDiv = document.getElementById('loginError');
+
+    const username = usernameInput.value;
+    const password = passwordInput.value;
+
+    // Loading state
+    loginBtn.disabled = true;
+    loginBtn.innerText = '登录中...';
+    errorDiv.classList.add('hidden');
+
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.detail || '登录失败');
+        }
+
+        // Success
+        hideLoginModal();
+        // Trigger query after login
+        queryData();
+
+    } catch (error) {
+        errorDiv.innerText = error.message;
+        errorDiv.classList.remove('hidden');
+    } finally {
+        loginBtn.disabled = false;
+        loginBtn.innerText = '登录';
+    }
+}
+
+function showLoginModal() {
+    const modal = document.getElementById('loginModal');
+    const content = document.getElementById('loginContent');
+    modal.classList.remove('hidden');
+    // Trigger reflow
+    void modal.offsetWidth;
+    modal.classList.remove('opacity-0');
+    content.classList.remove('scale-95');
+    content.classList.add('scale-100');
+}
+
+function hideLoginModal() {
+    const modal = document.getElementById('loginModal');
+    const content = document.getElementById('loginContent');
+    modal.classList.add('opacity-0');
+    content.classList.remove('scale-100');
+    content.classList.add('scale-95');
+
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 300);
+}
+
+async function queryData(isInitialLoad = false) {
     const weekInput = document.getElementById('weekInput');
     const queryBtn = document.getElementById('queryBtn');
     const loading = document.getElementById('loading');
@@ -11,17 +86,21 @@ async function queryData() {
         payload.week = parseInt(weekVal);
     }
 
-    // Reset UI
-    resultsContainer.innerHTML = '';
-    resultsContainer.classList.add('hidden');
-    resultsContainer.classList.remove('opacity-100');
-    errorDiv.classList.add('hidden');
+    // If initial load, don't show main loading spinner yet, just try silently?
+    // Or show it.
+    if (!isInitialLoad) {
+        // Reset UI
+        resultsContainer.innerHTML = '';
+        resultsContainer.classList.add('hidden');
+        resultsContainer.classList.remove('opacity-100');
+        errorDiv.classList.add('hidden');
 
-    // Loading State
-    loading.classList.remove('hidden');
-    queryBtn.disabled = true;
-    queryBtn.classList.add('opacity-75', 'cursor-not-allowed');
-    queryBtn.innerText = '查询中...';
+        // Loading State
+        loading.classList.remove('hidden');
+        queryBtn.disabled = true;
+        queryBtn.classList.add('opacity-75', 'cursor-not-allowed');
+        queryBtn.innerText = '查询中...';
+    }
 
     try {
         const response = await fetch('/api/query', {
@@ -32,6 +111,18 @@ async function queryData() {
             body: JSON.stringify(payload),
         });
 
+        if (response.status === 401) {
+            // Need login
+            showLoginModal();
+            if (!isInitialLoad) {
+                loading.classList.add('hidden');
+                queryBtn.disabled = false;
+                queryBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                queryBtn.innerText = '查询';
+            }
+            return;
+        }
+
         if (!response.ok) {
             throw new Error('Network response was not ok');
         }
@@ -41,18 +132,23 @@ async function queryData() {
 
     } catch (error) {
         console.error('Error:', error);
-        errorDiv.classList.remove('hidden');
-        errorDiv.innerText = '查询出错: ' + error.message;
+        if (!isInitialLoad) {
+            errorDiv.classList.remove('hidden');
+            errorDiv.innerText = '查询出错: ' + error.message;
+        }
     } finally {
-        loading.classList.add('hidden');
-        queryBtn.disabled = false;
-        queryBtn.classList.remove('opacity-75', 'cursor-not-allowed');
-        queryBtn.innerText = '查询';
+        if (!isInitialLoad) {
+            loading.classList.add('hidden');
+            queryBtn.disabled = false;
+            queryBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+            queryBtn.innerText = '查询';
+        }
     }
 }
 
 function displayResults(data) {
     const container = document.getElementById('results');
+    container.innerHTML = ''; // Clear previous
 
     // data structure: { week: 10, buildings: [...] }
     const buildings = data.buildings;

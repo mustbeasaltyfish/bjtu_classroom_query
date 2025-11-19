@@ -13,7 +13,15 @@ app = FastAPI()
 # Serve static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-CONFIG_FILE = "config.json"
+# Global session storage
+global_session = requests.Session()
+global_session.headers.update({
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+})
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
 class QueryRequest(BaseModel):
     week: int = None # Optional
@@ -94,71 +102,90 @@ def format_time_range(start_idx, length):
     # But displaying "Mon Period 7 to Tue Period 1" is valid.
     
     days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    day_idx = start_idx // 7
+    period_start = (start_idx % 7) + 1
+    period_end = period_start + length - 1
     
-    return f"{days[start_day-1]} 第{start_period}节 - {days[end_day-1]} 第{end_period}节"
+    return f"{days[day_idx]} 第{period_start}-{period_end}节"
 
-@app.post("/api/query")
-def query_classrooms(request: QueryRequest):
+@app.post("/api/login")
+async def login(request: LoginRequest):
+    username = request.username
+    password = request.password
+    
     try:
-        config = load_config()
-        username = config["username"]
-        password = config["password"]
-        
-        session = requests.Session()
-        session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        })
-        
-        # 1. Login
+        # 1. Get CSRF Token
         login_url = "https://aa.bjtu.edu.cn/client/login/"
-        
-        # Get login page for CSRF
-        r1 = session.get(login_url)
-        soup_login = BeautifulSoup(r1.text, 'html.parser')
-        csrf_input = soup_login.find("input", {"name": "csrfmiddlewaretoken"})
-        csrf_token = csrf_input["value"] if csrf_input else session.cookies.get('csrftoken')
-        
+        r1 = global_session.get(login_url)
+        soup = BeautifulSoup(r1.text, 'html.parser')
+        csrf_input = soup.find("input", {"name": "csrfmiddlewaretoken"})
+        if not csrf_input:
+            # Try cookie
+            csrf_token = global_session.cookies.get('csrftoken')
+        else:
+            csrf_token = csrf_input["value"]
+            
+        if not csrf_token:
+             raise HTTPException(status_code=500, detail="Failed to get CSRF token")
+
+        # 2. Post Login
         login_data = {
             "loginname": username,
             "password": password,
             "csrfmiddlewaretoken": csrf_token
         }
-        
         headers = {
             "Referer": login_url
         }
         
-        response = session.post(login_url, data=login_data, headers=headers)
+        r2 = global_session.post(login_url, data=login_data, headers=headers)
         
-        if response.url == login_url or "用户登录" in response.text:
-             # Check for failure more robustly
-             # If we are still on login page, it failed.
-             # But sometimes it redirects to notice page which is success.
-             if "用户登录" in response.text and "退出" not in response.text:
-                 raise HTTPException(status_code=401, detail="Login failed. Check credentials.")
+        if "用户登录" in r2.text and "注销" not in r2.text:
+             # Login likely failed if we are still on login page and not logged in
+             # But sometimes it redirects. Let's check if we can access a protected page?
+             # Or check for specific error message
+             if "用户名或密码错误" in r2.text:
+                 raise HTTPException(status_code=401, detail="用户名或密码错误")
+             # Assume success if redirected or no error, but let's verify with next step in query
              
-        # 2. Fetch Data
-        # If week is not provided, fetch default page to get current week
-        target_week = request.week
+        return {"message": "Login successful"}
         
-        if target_week is None:
-            data_url = "https://aa.bjtu.edu.cn/classroomtimeholdresult/room_view/"
-        else:
-            data_url = f"https://aa.bjtu.edu.cn/classroomtimeholdresult/room_view/?zc={target_week}"
-            
-        response = session.get(data_url)
+    except Exception as e:
+        print(f"Login Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/query")
+async def query_classroom(request: QueryRequest):
+    target_week = request.week
+    
+    try:
+        # Use global session
+        session = global_session
         
-        if "用户登录" in response.text:
-             raise HTTPException(status_code=401, detail="Login failed. Check credentials.")
-             
+        # Check if logged in by accessing a protected page
+        # If not logged in, it usually redirects to login
+        base_url = "https://aa.bjtu.edu.cn/classroomtimeholdresult/room_view/?zc=10" # Just to check
+        r_check = session.get(base_url)
+        if "用户登录" in r_check.text and "注销" not in r_check.text:
+             raise HTTPException(status_code=401, detail="Not logged in. Please login first.")
+
+        # ... (Rest of the logic uses 'session' which is now global_session)
+        
         # 3. Parse Initial Page to get Buildings
+        # We can use r_check if we didn't provide a week, or fetch specific week
+        
+        url = "https://aa.bjtu.edu.cn/classroomtimeholdresult/room_view/"
+        if target_week:
+            url += f"?zc={target_week}"
+            
+        response = session.get(url)
         soup = BeautifulSoup(response.text, 'html.parser')
         
         # Try to detect week if not provided
         if target_week is None:
             # ... (existing week detection logic) ...
             # Strategy 1: Check the select element
-            select = soup.find("select", id="zc") # Assuming id is zc based on url param
+            select = soup.find("select", id="zc") 
             if select:
                 selected_option = select.find("option", selected=True)
                 if selected_option:
@@ -168,14 +195,14 @@ def query_classrooms(request: QueryRequest):
             if target_week is None:
                 chosen = soup.find("a", class_="chosen-single")
                 if chosen:
-                    text = chosen.get_text(strip=True) # e.g. "第10周"
+                    text = chosen.get_text(strip=True) 
                     match = re.search(r'\d+', text)
                     if match:
                         target_week = int(match.group())
             
             # Fallback default
             if target_week is None:
-                target_week = 10 # Default fallback
+                target_week = 10 
         
         # Get Building Options
         building_select = soup.find("select", {"name": "jxlh"})
@@ -186,11 +213,9 @@ def query_classrooms(request: QueryRequest):
             for opt in options:
                 val = opt.get("value")
                 text = opt.get_text(strip=True)
-                if val and val.strip(): # Skip empty value
+                if val and val.strip(): 
                     buildings_to_scrape.append({"id": val, "name": text})
         else:
-            # Fallback if select not found (shouldn't happen based on debug)
-            # Maybe just scrape current page as "Unknown Building"
             buildings_to_scrape.append({"id": None, "name": "当前教学楼"})
 
         final_response = {
@@ -198,7 +223,6 @@ def query_classrooms(request: QueryRequest):
             "buildings": []
         }
         
-        # Limit to a few for testing if needed, but user asked for ALL.
         # Scrape each building
         for b in buildings_to_scrape:
             b_id = b["id"]
@@ -207,12 +231,10 @@ def query_classrooms(request: QueryRequest):
             # Fetch building specific page
             if b_id:
                 b_url = f"https://aa.bjtu.edu.cn/classroomtimeholdresult/room_view/?zc={target_week}&jxlh={b_id}"
-                # Add a small delay to be nice?
-                # time.sleep(0.1) 
                 resp = session.get(b_url)
                 soup_b = BeautifulSoup(resp.text, 'html.parser')
             else:
-                soup_b = soup # Use already fetched page
+                soup_b = soup 
                 
             table = soup_b.find("table", class_="table-bordered")
             if not table:
@@ -287,7 +309,10 @@ def query_classrooms(request: QueryRequest):
             
         return final_response
 
+    except HTTPException as he:
+        raise he
     except Exception as e:
+        print(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/")
