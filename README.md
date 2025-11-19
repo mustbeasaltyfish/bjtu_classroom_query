@@ -1,12 +1,35 @@
 # BJTU Classroom Availability Query (BJTU 教室空闲查询)
 
-A web application to query classroom availability at Beijing Jiaotong University (BJTU). It automatically scrapes the teaching support platform to find classrooms with the longest continuous free time for each teaching building.
+北京交通大学教室空闲查询工具。自动抓取教学平台数据，计算并显示各教学楼当天连续空闲时间最长的教室。
+
+## 使用说明 (Usage)
+
+1.  **启动服务**:
+    在终端中运行：
+    ```bash
+    python -m uvicorn main:app --host 0.0.0.0 --port 8000
+    ```
+
+2.  **打开应用**:
+    在浏览器中访问 `http://localhost:8000`。
+
+3.  **登录**:
+    -   首次打开时会弹出登录窗口。
+    -   输入你的学号和密码（默认密码通常为身份证后6位）。
+    -   登录成功后，系统会自动保存会话。
+
+4.  **查询**:
+    -   **自动检测**: 留空周次输入框，直接点击“查询”，系统会自动检测当前周次并显示所有教学楼（思源楼、逸夫楼等）当天连续空闲时间最长的教室。
+    -   **指定周次**: 输入特定周次数字可查询未来的空闲情况。
+
+---
 
 ## Features
 
--   **Auto-Login**: Automatically logs in to the BJTU teaching platform using your credentials.
+-   **UI Login**: Secure login via a popup modal on the frontend. No configuration file needed.
+-   **Current Day Logic**: Calculates the longest continuous free time strictly for the **current day**, avoiding cross-day confusion.
 -   **Auto-Week Detection**: Automatically detects the current academic week.
--   **Multi-Building Support**: Queries all available teaching buildings (e.g., 思源楼, 思源西楼, 逸夫楼, etc.).
+-   **Multi-Building Support**: Queries all available teaching buildings.
 -   **Smart Sorting**: Prioritizes results for popular buildings (Siyuan > Siyuan East/West > Yifu).
 -   **Modern UI**: Features a responsive, dark-themed interface with glassmorphism effects.
 
@@ -34,37 +57,10 @@ A web application to query classroom availability at Beijing Jiaotong University
     pip install -r requirements.txt
     ```
 
-## Configuration
-
-1.  Create a `config.json` file in the root directory.
-2.  Add your BJTU credentials:
-    ```json
-    {
-        "username": "your_student_id",
-        "password": "your_password"
-    }
-    ```
-    > **Note**: `config.json` is added to `.gitignore` by default to protect your credentials.
-
-## Usage
-
-1.  **Start the server**:
-    ```bash
-    python -m uvicorn main:app --host 0.0.0.0 --port 8000
-    ```
-
-2.  **Open the application**:
-    Open your browser and navigate to `http://localhost:8000`.
-
-3.  **Query**:
-    -   Leave the week input empty and click **查询** to automatically detect the current week and find the best rooms for all buildings.
-    -   Or enter a specific week number to check a future date.
-
 ## Project Structure
 
 -   `main.py`: FastAPI backend handling scraping and logic.
 -   `static/`: Frontend assets (HTML, CSS, JS).
--   `config.json`: User credentials (not committed).
 -   `requirements.txt`: Python dependencies.
 
 ## License
