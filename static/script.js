@@ -73,6 +73,30 @@ function hideLoginModal() {
     }, 300);
 }
 
+// Help Modal Logic
+function showHelpModal() {
+    const modal = document.getElementById('helpModal');
+    const content = document.getElementById('helpContent');
+    modal.classList.remove('hidden');
+    // Trigger reflow
+    void modal.offsetWidth;
+    modal.classList.remove('opacity-0');
+    content.classList.remove('scale-95');
+    content.classList.add('scale-100');
+}
+
+function hideHelpModal() {
+    const modal = document.getElementById('helpModal');
+    const content = document.getElementById('helpContent');
+    modal.classList.add('opacity-0');
+    content.classList.remove('scale-100');
+    content.classList.add('scale-95');
+
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 300);
+}
+
 async function queryData(isInitialLoad = false) {
     const weekInput = document.getElementById('weekInput');
     const queryBtn = document.getElementById('queryBtn');
@@ -154,51 +178,49 @@ function displayResults(data) {
     const buildings = data.buildings;
     const week = data.week;
 
-    // Update header or show week info if needed
-    // For now just show results
-
     if (!buildings || buildings.length === 0) {
-        container.innerHTML = '<div class="col-span-full text-center text-gray-400">未找到数据</div>';
+        container.innerHTML = '<div class="col-span-full text-center text-gray-400 py-12">未找到数据</div>';
     } else {
         // Add a header for the week
         const weekHeader = document.createElement('div');
-        weekHeader.className = 'col-span-full text-center text-2xl font-bold text-blue-400 mb-4';
-        weekHeader.innerText = `第 ${week} 周查询结果`;
+        weekHeader.className = 'col-span-full text-center mb-8';
+        weekHeader.innerHTML = `
+            <span class="inline-block bg-black text-white text-sm font-bold px-4 py-2 rounded-full mb-2">第 ${week} 周</span>
+            <h2 class="text-2xl font-bold">查询结果</h2>
+        `;
         container.appendChild(weekHeader);
 
         buildings.forEach(item => {
             const card = document.createElement('div');
-            card.className = 'glass-card rounded-2xl p-6 flex flex-col relative overflow-hidden group';
-
-            // Gradient border effect at top
-            const borderTop = document.createElement('div');
-            borderTop.className = 'absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left';
-            card.appendChild(borderTop);
+            // New Card Style: White, large rounded, subtle border
+            card.className = 'bg-white border border-gray-100 rounded-[2rem] p-8 flex flex-col shadow-sm hover:shadow-xl transition-all duration-300 group';
 
             const buildingTitle = document.createElement('h3');
-            buildingTitle.className = 'text-xl font-bold text-gray-100 mb-4 flex items-center';
-            buildingTitle.innerHTML = `<span class="w-2 h-8 bg-blue-500 rounded-full mr-3"></span>${item.building}`;
+            buildingTitle.className = 'text-xl font-bold text-black mb-6 flex items-center';
+            // Minimal dot indicator
+            buildingTitle.innerHTML = `<span class="w-2 h-2 bg-black rounded-full mr-3"></span>${item.building}`;
 
             const roomInfo = document.createElement('div');
-            roomInfo.className = 'flex-1';
+            roomInfo.className = 'flex-1 flex flex-col justify-between';
 
             const bestRoom = item.best_room;
 
             roomInfo.innerHTML = `
-                <div class="mb-4">
-                    <p class="text-sm text-gray-400 uppercase tracking-wider mb-1">推荐教室</p>
-                    <p class="text-3xl font-bold text-blue-400">${bestRoom.room}</p>
+                <div class="mb-6">
+                    <p class="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-2">推荐教室</p>
+                    <p class="text-4xl font-bold text-black tracking-tight">${bestRoom.room}</p>
                 </div>
                 
-                <div class="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
-                    <div class="flex justify-between items-end mb-2">
-                        <span class="text-gray-400 text-sm">连续空闲</span>
-                        <span class="text-2xl font-bold text-white">${bestRoom.max_free} <span class="text-sm text-gray-500 font-normal">节</span></span>
+                <div class="bg-gray-50 rounded-2xl p-5">
+                    <div class="flex justify-between items-end mb-3">
+                        <span class="text-gray-500 text-sm font-medium">连续空闲</span>
+                        <span class="text-2xl font-bold text-black">${bestRoom.max_free} <span class="text-sm text-gray-400 font-normal">节</span></span>
                     </div>
-                    <div class="w-full bg-gray-700 rounded-full h-2 mb-3">
-                        <div class="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full" style="width: ${Math.min((bestRoom.max_free / 14) * 100, 100)}%"></div>
+                    <!-- Progress Bar: Black fill -->
+                    <div class="w-full bg-gray-200 rounded-full h-2 mb-3 overflow-hidden">
+                        <div class="bg-black h-2 rounded-full transition-all duration-1000 ease-out" style="width: ${Math.min((bestRoom.max_free / 7) * 100, 100)}%"></div>
                     </div>
-                    <p class="text-sm text-gray-300 font-medium">${bestRoom.time_range}</p>
+                    <p class="text-sm text-gray-600 font-medium">${bestRoom.time_range}</p>
                 </div>
             `;
 
