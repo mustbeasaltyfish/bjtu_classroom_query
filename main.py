@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import os
 import re
+import datetime
 
 app = FastAPI()
 
@@ -53,7 +54,7 @@ def get_building_name(room_name):
 def calculate_longest_free(slots):
     """
     slots: list of booleans (True=Free, False=Occupied)
-    Returns: (max_length, start_index, end_index)
+    Returns: (max_length, start_index)
     """
     max_len = 0
     current_len = 0
@@ -70,6 +71,7 @@ def calculate_longest_free(slots):
                 max_len = current_len
                 best_start = start_idx
             current_len = 0
+            start_idx = -1
             
     # Check end of list
     if current_len > max_len:
@@ -78,32 +80,14 @@ def calculate_longest_free(slots):
         
     return max_len, best_start
 
-def format_time_range(start_idx, length):
+def format_time_range(day_idx, start_idx, length):
     if start_idx == -1:
         return "无空闲"
     
-    # 0-48 index
-    # Day: index // 7 (0=Mon, 6=Sun)
-    # Period: index % 7 (0=1st, 6=7th)
-    
-    end_idx = start_idx + length - 1
-    
-    start_day = (start_idx // 7) + 1
-    start_period = (start_idx % 7) + 1
-    
-    end_day = (end_idx // 7) + 1
-    end_period = (end_idx % 7) + 1
-    
-    # Simplified: Assuming continuous block is within a day or spans days?
-    # The requirement is "continuous free time". 
-    # Usually we care about continuous time within a day. 
-    # But if it spans days (e.g. Mon night to Tue morning), is that useful?
-    # For simplicity and utility, let's treat it as a continuous block across the week grid.
-    # But displaying "Mon Period 7 to Tue Period 1" is valid.
-    
     days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
-    day_idx = start_idx // 7
-    period_start = (start_idx % 7) + 1
+    
+    # start_idx is 0-6 (within the day)
+    period_start = start_idx + 1
     period_end = period_start + length - 1
     
     return f"{days[day_idx]} 第{period_start}-{period_end}节"
@@ -223,6 +207,9 @@ async def query_classroom(request: QueryRequest):
             "buildings": []
         }
         
+        # Determine current day of week (0=Mon, 6=Sun)
+        current_weekday = datetime.datetime.now().weekday()
+        
         # Scrape each building
         for b in buildings_to_scrape:
             b_id = b["id"]
@@ -258,21 +245,32 @@ async def query_classroom(request: QueryRequest):
                 if len(cols) < 50:
                     continue
                     
-                slots = []
+                # Extract ALL slots first
+                all_slots = []
                 for i in range(1, 50):
                     style = cols[i].get("style", "").lower()
                     is_free = "background-color: #fff" in style or "background-color:#fff" in style
-                    slots.append(is_free)
-                    
-                max_len, start_idx = calculate_longest_free(slots)
-                time_range = format_time_range(start_idx, max_len)
+                    all_slots.append(is_free)
+                
+                # Filter for TODAY only
+                # 49 slots = 7 days * 7 periods
+                start_index = current_weekday * 7
+                end_index = start_index + 7
+                today_slots = all_slots[start_index:end_index]
+                
+                max_len, start_idx = calculate_longest_free(today_slots)
+                time_range = format_time_range(current_weekday, start_idx, max_len)
                 
                 room_data = {
                     "room": room_name,
                     "max_free": max_len,
                     "time_range": time_range,
-                    "slots": slots
+                    "slots": today_slots # Return only today's slots if needed by frontend, or keep all? 
+                                         # Frontend doesn't use 'slots' for display, just max_free and time_range.
                 }
+                
+                # Only add if there is some free time? Or even if 0?
+                # User wants "longest continuous free time".
                 building_rooms.append(room_data)
             
             if building_rooms:
