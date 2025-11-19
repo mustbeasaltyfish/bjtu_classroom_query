@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BJTU 教室空闲查询</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body class="bg-gray-900 text-white font-sans antialiased selection:bg-blue-500 selection:text-white">
+
+    <div class="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        <!-- Background Elements -->
+        <div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
+            <div
+                class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-20 animate-blob">
+            </div>
+            <div
+                class="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-20 animate-blob animation-delay-2000">
+            </div>
+            <div
+                class="absolute bottom-[-20%] left-[20%] w-[40%] h-[40%] bg-pink-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-20 animate-blob animation-delay-4000">
+            </div>
+        </div>
+
+        <div class="w-full max-w-5xl z-10">
+            <header class="text-center mb-12">
+                <h1
+                    class="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600 mb-4 tracking-tight">
+                    BJTU 教室空闲查询
+                </h1>
+                <p class="text-gray-400 text-lg">快速查找连续空闲时间最长的教室</p>
+            </header>
+
+            <div class="glass-panel p-8 rounded-2xl mb-12 max-w-md mx-auto">
+                <div class="flex flex-col space-y-4">
+                    <label for="weekInput" class="text-sm font-medium text-gray-300">查询周次 (留空自动检测)</label>
+                    <div class="flex space-x-2">
+                        <input type="number" id="weekInput" min="1" max="20"
+                            class="flex-1 bg-gray-800/50 border border-gray-700 text-white text-lg rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent block w-full p-3 transition-all outline-none placeholder-gray-500"
+                            placeholder="自动检测当前周">
+                        <button id="queryBtn" onclick="queryData()"
+                            class="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-3 px-8 rounded-xl transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-lg shadow-blue-500/30">
+                            查询
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="loading" class="hidden flex justify-center items-center py-12">
+                <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+
+            <div id="results"
+                class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 hidden opacity-0 transition-opacity duration-500">
+                <!-- Results will be injected here -->
+            </div>
+
+            <div id="error"
+                class="hidden text-center p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 mt-4 max-w-md mx-auto">
+                查询失败，请检查网络或凭证。
+            </div>
+        </div>
+
+        <footer class="mt-16 text-gray-600 text-sm">
+            Designed for BJTU Teachers & Students
+        </footer>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+
+</html>
