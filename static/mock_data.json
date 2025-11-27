@@ -1,0 +1,84 @@
+{
+    "week": 12,
+    "buildings": [
+        {
+            "building": "思源楼",
+            "best_room": {
+                "room": "SY405",
+                "max_free": 4,
+                "time_range": "周三 第5-8节",
+                "slots": [
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    true,
+                    true,
+                    true,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false
+                ]
+            }
+        },
+        {
+            "building": "思源东楼",
+            "best_room": {
+                "room": "SD302",
+                "max_free": 3,
+                "time_range": "周三 第1-3节",
+                "slots": [
+                    true,
+                    true,
+                    true,
+                    false,
+                    false,
+                    false,
+                    false
+                ]
+            }
+        },
+        {
+            "building": "逸夫楼",
+            "best_room": {
+                "room": "YF501",
+                "max_free": 2,
+                "time_range": "周三 第9-10节",
+                "slots": [
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    true,
+                    false
+                ]
+            }
+        },
+        {
+            "building": "第九教学楼",
+            "best_room": {
+                "room": "J9-201",
+                "max_free": 6,
+                "time_range": "周三 第1-6节",
+                "slots": [
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    false
+                ]
+            }
+        }
+    ]
+}

@@ -32,6 +32,10 @@ async function handleLogin(e) {
         });
 
         if (!response.ok) {
+            // If 404 (backend not found), treat as demo mode restriction
+            if (response.status === 404 || response.status === 405) {
+                throw new Error('演示模式下无法登录');
+            }
             const data = await response.json();
             throw new Error(data.detail || '登录失败');
         }
@@ -42,7 +46,12 @@ async function handleLogin(e) {
         queryData();
 
     } catch (error) {
-        errorDiv.innerText = error.message;
+        // If fetch failed completely (network error), also demo mode
+        if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+            errorDiv.innerText = '演示模式下无法登录 (后端未连接)';
+        } else {
+            errorDiv.innerText = error.message;
+        }
         errorDiv.classList.remove('hidden');
     } finally {
         loginBtn.disabled = false;
@@ -155,10 +164,31 @@ async function queryData(isInitialLoad = false) {
         displayResults(data);
 
     } catch (error) {
-        console.error('Error:', error);
-        if (!isInitialLoad) {
-            errorDiv.classList.remove('hidden');
-            errorDiv.innerText = '查询出错: ' + error.message;
+        console.warn('API Request failed, trying mock data...', error);
+
+        // Fallback to mock data for GitHub Pages or when backend is down
+        try {
+            const mockResponse = await fetch('mock_data.json');
+            if (mockResponse.ok) {
+                const mockData = await mockResponse.json();
+
+                // Show a toast or message indicating demo mode
+                if (!isInitialLoad) {
+                    const errorDiv = document.getElementById('error');
+                    errorDiv.classList.remove('hidden');
+                    errorDiv.innerHTML = '<span class="text-orange-500">注意：后端服务不可用，当前显示演示数据。</span>';
+                }
+
+                displayResults(mockData);
+            } else {
+                throw new Error('Mock data not found');
+            }
+        } catch (mockError) {
+            console.error('Mock data failed:', mockError);
+            if (!isInitialLoad) {
+                errorDiv.classList.remove('hidden');
+                errorDiv.innerText = '查询出错: ' + error.message;
+            }
         }
     } finally {
         if (!isInitialLoad) {
